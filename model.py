@@ -91,7 +91,7 @@ class CPModule(nn.Module):
 
 
 
-class CPRelative(nn.Module):
+class CPNet(nn.Module):
 
     def __init__(self, input_channel, t, class_num):
         super(CPRelative, self).__init__()
@@ -116,7 +116,7 @@ class CPRelative(nn.Module):
         return fc
 
 if __name__ == '__main__':
-    relativeNN = CPRelative(3, 4, 4).cuda()
+    relativeNN = CPNet(3, 4, 4).cuda()
     input = torch.rand(16, 4, 3, 32, 32).cuda()
     out = relativeNN(input)
     print(out)
