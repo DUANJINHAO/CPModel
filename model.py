@@ -94,7 +94,7 @@ class CPModule(nn.Module):
 class CPNet(nn.Module):
 
     def __init__(self, input_channel, t, class_num):
-        super(CPRelative, self).__init__()
+        super(CPNet, self).__init__()
         self.input_channel = input_channel
         self.conv1 = nn.Conv2d(self.input_channel, 16, 3)
         self.t = t
