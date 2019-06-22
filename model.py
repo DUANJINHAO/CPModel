@@ -1,4 +1,3 @@
-
 import numpy as np
 import time
 import torch
@@ -26,7 +25,7 @@ class CPModule(nn.Module):
         t = size[1]
         h = size[3]
         w = size[4]
-        hw = h*w
+        hw = h * w
         thw = t * hw
         feature_num = size[2]
         # (bs, segments, channels, height, width) -> (bs, segments, height, width, channels)
@@ -44,7 +43,8 @@ class CPModule(nn.Module):
         # which finally cause device-side assert triggered
         # `index >= -sizes[i] && index < sizes[i] && "index out of bounds"`
         # Hense, perform torch.clamp() to constrain value of each element of similarity in [MAX, MIN] before perform torch.sqrt()
-        similarity_unsqrt = torch.add(torch.add(square1, square2), -2*torch.matmul(input, torch.transpose(input, 1, 2)))
+        similarity_unsqrt = torch.add(torch.add(square1, square2),
+                                      -2 * torch.matmul(input, torch.transpose(input, 1, 2)))
         # Do clamp()
         similarity = torch.sqrt(torch.clamp(similarity_unsqrt, 1e-5, 100)) * -1
         # print(similarity_sqrted)
@@ -66,29 +66,25 @@ class CPModule(nn.Module):
         corres_t_pos = (corres_idx_viewed // hw).float() / t
         corres_h_pos = (corres_idx_viewed % hw // h).float() / h
         corres_w_pos = (corres_idx_viewed % hw % h).float() / w
-        corres_positions = torch.cat([corres_t_pos.view(-1, 1), corres_h_pos.view(-1, 1), corres_w_pos.view(-1, 1)], dim=1).view(bs, thw, self.k, 3).cuda()
-        input_idx_viewed = torch.arange(thw).view(-1, h*w*t).expand(bs, -1).contiguous().view(-1, 1).expand(-1, self.k).contiguous().view(-1).cuda()
+        corres_positions = torch.cat([corres_t_pos.view(-1, 1), corres_h_pos.view(-1, 1), corres_w_pos.view(-1, 1)],
+                                     dim=1).view(bs, thw, self.k, 3).cuda()
+        input_idx_viewed = torch.arange(thw).view(-1, h * w * t).expand(bs, -1).contiguous().view(-1, 1).expand(-1, self.k).contiguous().view(-1)
         # input_idx_viewed = torch.from_numpy(np.array([np.arange(thw), np.arange(thw)])).view(-1, 1).expand(-1, self.k).contiguous().view(-1)
-        input_t_pos = (input_idx_viewed // h*w).float() / t
-        input_t_pos = input_t_pos.cuda()
-        input_h_pos = (input_idx_viewed % h*w // h).float() / h
-        input_h_pos = input_h_pos.cuda()
-        input_w_pos = (input_idx_viewed % h*w % h).float() / w
-        input_w_pos = input_w_pos.cuda()
-        input_positions = torch.cat([input_t_pos.view(-1, 1), input_h_pos.view(-1, 1), input_w_pos.view(-1, 1)], dim=1).view(bs, t*h*w, self.k, 3) * -1
+        input_t_pos = (input_idx_viewed // h * w).float() / t
+        input_h_pos = (input_idx_viewed % h * w // h).float() / h
+        input_w_pos = (input_idx_viewed % h * w % h).float() / w
+        input_positions = torch.cat([input_t_pos.view(-1, 1), input_h_pos.view(-1, 1), input_w_pos.view(-1, 1)], dim=1).view(bs, t * h * w, self.k, 3) * -1
         input_positions = input_positions.cuda()
-        displacements = corres_positions + input_positions
-        # displacements = corres_positions
+        displacements = corres_positions - input_positions
         MLP_inputs = torch.cat([MLP_features_inputs.cuda(), displacements.cuda()], dim=3).view(-1, feature_num * 2 + 3).cuda()
         # Get MLP outputs
         MLP_outputs = self.MLP(MLP_inputs)
-        MLP_outputs = MLP_outputs.view(bs, thw, self.k, feature_num).cuda()
+        MLP_outputs = MLP_outputs.view(bs, thw, self.k, feature_num)
         # Perform max
-        max_MLP = torch.max(MLP_outputs, dim=2)[0].view(bs, t, h, w, feature_num).cuda()
+        max_MLP = torch.max(MLP_outputs, dim=2)[0].view(bs, t, h, w, feature_num)
         # Transfer to original input shape
-        embedded = max_MLP.permute(0, 1, 4, 2, 3).view(bs, t, feature_num, h, w).cuda()
+        embedded = max_MLP.permute(0, 1, 4, 2, 3).view(bs, t, feature_num, h, w)
         return embedded
-
 
 
 class CPNet(nn.Module):
@@ -104,16 +100,17 @@ class CPNet(nn.Module):
         self.fc = nn.Linear(t * 14 * 14 * 16, class_num).cuda()
 
     def forward(self, input):
-        input = input.view((-1, self.input_channel) + input.size()[-2:]) # (bs*segments, channels, height, width)
+        input = input.view((-1, self.input_channel) + input.size()[-2:])  # (bs*segments, channels, height, width)
         conv1 = self.conv1(input)
-        conv1 = conv1.view((-1, self.t) + conv1.size()[1:]) # (bs, segments, channels, height, width)
+        conv1 = conv1.view((-1, self.t) + conv1.size()[1:])  # (bs, segments, channels, height, width)
         cp1 = self.cp(conv1)
         cp1 = cp1.view(-1, 16, 30, 30).cuda()
         conv2 = self.conv2(cp1)
         pool = self.pool(conv2)
-        pool = pool.view(-1, 4*16*14*14)
-        fc = self.fc(pool.view(-1, self.t*14*14*16))
+        pool = pool.view(-1, 4 * 16 * 14 * 14)
+        fc = self.fc(pool.view(-1, self.t * 14 * 14 * 16))
         return fc
+
 
 if __name__ == '__main__':
     relativeNN = CPNet(3, 4, 4).cuda()
