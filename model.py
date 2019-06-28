@@ -64,15 +64,14 @@ class CPModule(nn.Module):
         input_expanded = input.view([bs, thw, 1, feature_num]).expand(-1, -1, self.k, -1)
         MLP_features_inputs = torch.cat([input_expanded, correspondences], dim=3)
         corres_t_pos = (corres_idx_viewed // hw).float() / t
-        corres_h_pos = (corres_idx_viewed % hw // h).float() / h
-        corres_w_pos = (corres_idx_viewed % hw % h).float() / w
+        corres_h_pos = (corres_idx_viewed % hw // w).float()
+        corres_w_pos = (corres_idx_viewed % hw % w).float()
         corres_positions = torch.cat([corres_t_pos.view(-1, 1), corres_h_pos.view(-1, 1), corres_w_pos.view(-1, 1)],
                                      dim=1).view(bs, thw, self.k, 3).cuda()
         input_idx_viewed = torch.arange(thw).view(-1, h * w * t).expand(bs, -1).contiguous().view(-1, 1).expand(-1, self.k).contiguous().view(-1)
-        # input_idx_viewed = torch.from_numpy(np.array([np.arange(thw), np.arange(thw)])).view(-1, 1).expand(-1, self.k).contiguous().view(-1)
-        input_t_pos = (input_idx_viewed // h * w).float() / t
-        input_h_pos = (input_idx_viewed % h * w // h).float() / h
-        input_w_pos = (input_idx_viewed % h * w % h).float() / w
+        input_t_pos = (input_idx_viewed // h*w).float() / t
+        input_h_pos = (input_idx_viewed % h*w // w).float()
+        input_w_pos = (input_idx_viewed % h*w % w).float()
         input_positions = torch.cat([input_t_pos.view(-1, 1), input_h_pos.view(-1, 1), input_w_pos.view(-1, 1)], dim=1).view(bs, t * h * w, self.k, 3) * -1
         input_positions = input_positions.cuda()
         displacements = corres_positions - input_positions
