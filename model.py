@@ -112,7 +112,7 @@ class CPNet(nn.Module):
 
 
 if __name__ == '__main__':
-    relativeNN = CPNet(3, 4, 4).cuda()
+    cpnet = CPNet(3, 4, 4).cuda()
     input = torch.rand(16, 4, 3, 32, 32).cuda()
-    out = relativeNN(input)
+    out = cpnet(input)
     print(out)
